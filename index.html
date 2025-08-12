@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Aboutness Project 2.0</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 800px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section-title {
+            color: #333;
+            font-size: 1.2em;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        textarea, input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .button-secondary {
+            background-color: #6c757d;
+        }
+        .button-secondary:hover {
+            background-color: #5a6268;
+        }
+        .button-tertiary {
+            background-color: #ffc107;
+            color: #333;
+        }
+        .button-tertiary:hover {
+            background-color: #e0a800;
+        }
+        #response-area {
+            margin-top: 25px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            white-space: pre-wrap;
+            line-height: 1.6;
+            min-height: 50px;
+        }
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+        .error {
+            color: #d9534f;
+            font-weight: bold;
+        }
+        .relevant-documents-section {
+            margin-top: 20px;
+            border-top: 1px dashed #ccc;
+            padding-top: 15px;
+        }
+        .relevant-documents-section h4 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .relevant-documents-section ul {
+            list-style: none;
+            padding: 0;
+        }
+        .relevant-documents-section li {
+            background-color: #f0f8ff;
+            border: 1px solid #b0e0e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+        .relevant-documents-section li a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .relevant-documents-section li a:hover {
+            text-decoration: underline;
+        }
+        .relevant-documents-section li .authors {
+            font-size: 0.85em;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>The Aboutness Project 2.0</h1>
+        
+        <div class="section-title">1. Load Data from Gist</div>
+        <div class="form-group">
+            <input type="text" id="gist-id-input" placeholder="Enter Gist ID (e.g., 4b1cc62bdc88fb1558b320110780cda2)">
+            <button onclick="bulkLoadGist()" class="button-secondary">Load All Gist Files</button>
+        </div>
+
+        <div class="section-title">2. Ask a Query</div>
+        <div class="form-group">
+            <textarea id="query-input" placeholder="Type your question here..." rows="3"></textarea>
+            <input type="text" id="query-limit-input" placeholder="Limit (default 5)">
+            <button onclick="queryBackend()">Submit Query</button>
+        </div>
+
+        <div class="section-title">3. Find Similar Docs in a Gist</div>
+        <div class="form-group">
+            <input type="text" id="similar-gist-id-input" placeholder="Enter Gist ID">
+            <input type="text" id="similar-doc-title-input" placeholder="Enter document title (e.g., test_data.txt)">
+            <input type="text" id="similar-limit-input" placeholder="Limit (default 3)">
+            <button onclick="findSimilarGistDocs()" class="button-secondary">Find Similar Gist Docs</button>
+        </div>
+
+        <div class="section-title">4. Find Articles Similar to a Gist Doc (via LLM)</div>
+        <div class="form-group">
+            <input type="text" id="similar-llm-doc-title-input" placeholder="Enter document title (e.g., test_data.txt)">
+            <select id="llm-type-select">
+                <option value="gemini">Gemini</option>
+                <option value="openai">OpenAI</option>
+            </select>
+            <input type="text" id="similar-llm-limit-input" placeholder="Limit (default 3)">
+            <button onclick="findSimilarLLM()" class="button-tertiary">Find Similar Articles</button>
+        </div>
+        
+        <div id="response-area"></div>
+        <div id="relevant-documents-area" class="relevant-documents-section" style="display: none;">
+            <h4>Relevant Documents:</h4>
+            <ul id="relevant-documents-list"></ul>
+        </div>
+    </div>
+
+    <script>
+        // --- IMPORTANT: Replace with your actual Render backend URL ---
+        const BACKEND_URL = "https://tap2-backend.onrender.com"; 
+        // -----------------------------------------------------------
+
+        const gistIdInput = document.getElementById('gist-id-input');
+        const queryInput = document.getElementById('query-input');
+        const queryLimitInput = document.getElementById('query-limit-input');
+        const similarGistIdInput = document.getElementById('similar-gist-id-input');
+        const similarDocTitleInput = document.getElementById('similar-doc-title-input');
+        const similarLimitInput = document.getElementById('similar-limit-input');
+        const similarLlmDocTitleInput = document.getElementById('similar-llm-doc-title-input');
+        const llmTypeSelect = document.getElementById('llm-type-select');
+        const similarLlmLimitInput = document.getElementById('similar-llm-limit-input');
+        const responseArea = document.getElementById('response-area');
+        const relevantDocumentsArea = document.getElementById('relevant-documents-area');
+        const relevantDocumentsList = document.getElementById('relevant-documents-list');
+
+        function updateResponseArea(message, className) {
+            responseArea.textContent = message;
+            responseArea.className = className;
+        }
+
+        function clearDocuments() {
+            relevantDocumentsArea.style.display = 'none';
+            relevantDocumentsList.innerHTML = '';
+        }
+
+        function displayRelevantDocuments(docs) {
+            relevantDocumentsList.innerHTML = '';
+            docs.forEach(doc => {
+                const listItem = document.createElement('li');
+                listItem.innerHTML = `
+                    <a href="${doc.url || '#'}" target="_blank">${doc.title || 'Untitled'}</a><br>
+                    <span class="authors">${doc.authors || 'Unknown Authors'}</span><br>
+                    <small>${doc.abstract ? doc.abstract.substring(0, 150) + '...' : 'No abstract'}</small>
+                `;
+                relevantDocumentsList.appendChild(listItem);
+            });
+            relevantDocumentsArea.style.display = 'block';
+        }
+
+        async function makePostRequest(endpoint, body) {
+            updateResponseArea("Thinking...", "loading");
+            clearDocuments();
+
+            try {
+                const response = await fetch(`${BACKEND_URL}${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.response) {
+                        updateResponseArea(data.response, "");
+                    } else if (data.message) {
+                        updateResponseArea(data.message, "");
+                    } else if (data.similar_documents) {
+                        updateResponseArea(`Found ${data.similar_documents.length} similar documents.`, "");
+                        displayRelevantDocuments(data.similar_documents);
+                    } else {
+                        updateResponseArea("Error: Invalid response from backend.", "error");
+                    }
+                } else {
+                    const errorMsg = data.detail || data.message || `HTTP Error: ${response.status}`;
+                    updateResponseArea(`Error from server: ${errorMsg}`, "error");
+                    console.error("Server error:", data);
+                }
+            } catch (error) {
+                updateResponseArea("Network error: Failed to connect to the backend.", "error");
+                console.error("Fetch error:", error);
+            }
+        }
+
+        async function bulkLoadGist() {
+            const gistId = gistIdInput.value.trim();
+            if (!gistId) {
+                updateResponseArea("Please enter a Gist ID.", "error");
+                return;
+            }
+            
+            updateResponseArea("Loading Gist data...", "loading");
+            clearDocuments();
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/bulk-load-gist?gist_id=${encodeURIComponent(gistId)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    updateResponseArea(`Success: ${data.message || 'Data loaded successfully!'}`, "");
+                } else {
+                    const errorMsg = data.detail || data.message || `HTTP Error: ${response.status}`;
+                    updateResponseArea(`Error loading Gist: ${errorMsg}`, "error");
+                    console.error("Backend error during Gist load:", data);
+                }
+            } catch (error) {
+                updateResponseArea("Network error: Failed to connect to the backend for Gist load.", "error");
+                console.error("Fetch error during Gist load:", error);
+            }
+        }
+
+        async function queryBackend() {
+            const query = queryInput.value.trim();
+            const limit = queryLimitInput.value.trim() || 5;
+
+            if (!query) {
+                updateResponseArea("Please enter a query.", "error");
+                return;
+            }
+            await makePostRequest("/query", { query: query, limit: parseInt(limit) });
+        }
+
+        async function findSimilarGistDocs() {
+            const gistId = similarGistIdInput.value.trim();
+            const docTitle = similarDocTitleInput.value.trim();
+            const limit = similarLimitInput.value.trim() || 3;
+
+            if (!gistId) {
+                updateResponseArea("Please enter a Gist ID.", "error");
+                return;
+            }
+            if (!docTitle) {
+                updateResponseArea("Please enter a document title.", "error");
+                return;
+            }
+            await makePostRequest("/find-similar-gist-docs", { gist_id: gistId, document_title: docTitle, limit: parseInt(limit) });
+        }
+
+        async function findSimilarLLM() {
+            const docTitle = similarLlmDocTitleInput.value.trim();
+            const llmType = llmTypeSelect.value;
+            const limit = similarLlmLimitInput.value.trim() || 3;
+
+            if (!docTitle) {
+                updateResponseArea("Please enter a document title.", "error");
+                return;
+            }
+            await makePostRequest("/find-similar-llm", { document_title: docTitle, limit: parseInt(limit), llm_type: llmType });
+        }
+    </script>
+</body>
+</html>
