@@ -263,20 +263,21 @@
             clearDocuments();
 
             try {
-                const response = await fetch(`${BACKEND_URL}/bulk-load-gist?gist_id=${encodeURIComponent(gistId)}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    updateResponseArea(`Success: ${data.message || 'Data loaded successfully!'}`, "");
-                } else {
-                    const errorMsg = data.detail || data.message || `HTTP Error: ${response.status}`;
-                    updateResponseArea(`Error loading Gist: ${errorMsg}`, "error");
-                    console.error("Backend error during Gist load:", data);
-                }
+               // JS (frontend)
+                    const response = await fetch(
+                      `${BACKEND}/bulk-load-gist?gist_id=${encodeURIComponent(gistId)}`,
+                      {
+                        method: 'POST',
+                        mode: 'cors',            // let the browser handle CORS
+                        // 👇 no body, no headers here
+                      }
+                    );
+                    if (!response.ok) {
+                      console.error("Bulk load failed:", response.status, await response.text());
+                    } else {
+                      const data = await response.json();
+                      console.log("Bulk load success:", data);
+                    }
             } catch (error) {
                 updateResponseArea("Network error: Failed to connect to the backend for Gist load.", "error");
                 console.error("Fetch error during Gist load:", error);
