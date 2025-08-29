@@ -253,7 +253,7 @@
         }
 
         async function bulkLoadGist(gistId) {
-              const res = await fetch(`${backend_url}/bulk-load-gist?gist_id=${encodeURIComponent(gistId)}`, {
+              const res = await fetch(`${BACKEND_URL}/bulk-load-gist?gist_id=${encodeURIComponent(gistId)}`, {
             method: "POST",
             mode: "cors"
             });
